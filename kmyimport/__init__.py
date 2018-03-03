@@ -8,6 +8,7 @@ import codecs
 from datetime import datetime
 import itertools
 from enum import IntEnum
+from html.parser import HTMLParser
 import pathlib
 import re
 
@@ -34,6 +35,25 @@ COLUMN_DESCRIPTIONS = {
     Columns.MEMO: "Memo",
 }
 
+class MLStripper(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.reset()
+        self.fed = []
+
+    def handle_data(self, d):
+        self.fed.append(d)
+
+    def get_data(self):
+        return ''.join(self.fed)
+
+
+def strip_tags(html):
+    stripper = MLStripper()
+    stripper.feed(html)
+    return stripper.get_data()
+
+
 def get_output_header():
     return [COLUMN_DESCRIPTIONS[c] for c in Columns.__members__.values()]
 
@@ -47,10 +67,10 @@ def data_sanitize(data, is_amount=False):
     appear in quoted strings as well.
     """
     if is_amount:
-        return re.sub(',', '.', data).strip()
+        return re.sub(',', '.', data.strip())
     if isinstance(data, datetime):
         return data.strftime('%d %m %Y')
-    return re.sub('[' + OUTDELIM + ',:]', '_', data.strip()).strip()
+    return re.sub('[' + OUTDELIM + ',:]', '_', strip_tags(data.strip()))
 
 
 def get_memo_column(column_names,

@@ -13,5 +13,11 @@ setup(name='kmyimport',
       author_email='mic.liamg@gmail.com',
       url="https://github.com/michojel/kmyimport",
       packages=['kmyimport'],
-      scripts=['bin/air2kmy.py', 'bin/entropay2kmy.py', 'bin/fio2kmy.py', 'bin/roklen2kmy.py'],
+      scripts=[
+          'bin/air2kmy.py',
+          'bin/entropay2kmy.py',
+          'bin/fio2kmy.py',
+          'bin/mbdcz2kmy.py',
+          'bin/roklen2kmy.py'
+      ],
       requires=['chardet'])
