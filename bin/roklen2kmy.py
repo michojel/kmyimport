@@ -10,11 +10,9 @@ from collections import defaultdict
 import csv
 from datetime import datetime
 from enum import IntEnum
-import itertools
 import pathlib
-import re
 
-import chardet
+import kmyimport
 
 
 class TransColumns(IntEnum):
@@ -59,23 +57,6 @@ class DataColumns(IntEnum):
     TRANSACTION_REFNUM = 12
 
 
-class KMyColumns(IntEnum):
-    """Enumeration of output collumns."""
-    REFNUM = 0
-    DATE = 1
-    PAYEE = 2
-    AMOUNT = 3
-    MEMO = 4
-
-
-COLUMN_DESCRIPTIONS = {
-    KMyColumns.REFNUM: "Reference number",
-    KMyColumns.DATE: "Date",
-    KMyColumns.PAYEE: "Payee",
-    KMyColumns.AMOUNT: "Amount",
-    KMyColumns.MEMO: "Memo",
-}
-
 DATACOL_NAMES = {
     DataColumns.RATIO: "Rate",
     DataColumns.BOUGHT_AMOUNT: "Amount bought",
@@ -89,8 +70,6 @@ DATACOL_NAMES = {
 
 
 INDELIM = ";"
-OUTDELIM = ";"
-MEMO_SEP = " - "
 PRIORITY_COLUMNS = (DataColumns.REFNUM, DataColumns.DATE,
                     DataColumns.PAYEE, DataColumns.AMOUNT)
 MEMO_PRIORITY_COLUMNS = (DataColumns.BOUGHT_AMOUNT,
@@ -128,61 +107,22 @@ def is_column_amount(index):
     return index in AMOUNT_COLUMNS
 
 
-def data_sanitize(data, column_index=None):
-    """
-    Returns the given contents of cell sanitized.
-
-    Returned data is stripped of whitespaces and problematic characters get
-    removed. KMyMoney's csv importer gets easily confused when delimiters
-    appear in quoted strings as well.
-    """
-    if column_index is not None and is_column_amount(column_index):
-        data = re.sub(',', '.', data)
-    if isinstance(data, datetime):
-        return data.strftime('%d %m %Y')
-    return re.sub('[' + OUTDELIM + ',:]', '_', data.strip())
-
-
-def get_memo_column(transaction):
-    """Returns the contents of memo column for the given transaction.
-
-    Parameters
-    ----------
-    transaction : dict(int -> obj)
-
-    Returns
-    -------
-    list of strings
-        Row for CSV writer.
-    """
-    result = []
-    processed = set()
-    for col in itertools.chain(
-            MEMO_PRIORITY_COLUMNS, DataColumns.__members__.values()):
-        if col in PRIORITY_COLUMNS or \
-                col in processed or col not in transaction:
-            continue
-        processed.add(col)
-        name = DATACOL_NAMES[col]
-        data = data_sanitize(transaction[col], col)
-        if not data:
-            continue
-        data = re.sub(OUTDELIM, '_', data)
-        result.append("{}{}{}".format(name, MEMO_SEP, data))
-    return "\n".join(result)
-
-
 def transform(transactions):
     """Yields rows for each transaction.
 
     The data is sanitized (turned into strings).
     """
-    yield [COLUMN_DESCRIPTIONS[c] for c in KMyColumns.__members__.values()]
+    yield kmyimport.get_output_header()
+    column_names = [
+        DATACOL_NAMES.get(c, "") for c in DataColumns.__members__.values()
+    ]
     for transaction in transactions:
         newrow = []
         for col in PRIORITY_COLUMNS:
-            newrow.append(data_sanitize(transaction[col], col))
-        newrow.append(get_memo_column(transaction))
+            newrow.append(kmyimport.data_sanitize(transaction[col], col))
+        newrow.append(kmyimport.get_memo_column(
+            column_names, transaction,
+            MEMO_PRIORITY_COLUMNS, PRIORITY_COLUMNS, is_column_amount))
         yield newrow
 
 
@@ -276,11 +216,9 @@ def write_currency_file(currency, transactions):
         "RoklenFX-{}-{}.kmy.csv".format(
             transordered[0][DataColumns.DATE].strftime("%Y-%m-%d"),
             currency))
-    with open(pth, "w") as output_file:
-        writer = csv.writer(
-            output_file, delimiter=OUTDELIM, quoting=csv.QUOTE_ALL)
-        for row in transform(transordered):
-            writer.writerow(row)
+    writer = kmyimport.get_csv_writer(pth)
+    for row in transform(transordered):
+        writer.writerow(row)
 
 
 def process_files(transreader, payreader):
@@ -293,23 +231,12 @@ def process_files(transreader, payreader):
         write_currency_file(cur, trans)
 
 
-def get_decoded(infile):
-    """Returns decoded file of the given file.
-
-    The infile will be closed and reopened again.
-    """
-    raw = infile.read(32)
-    encoding = chardet.detect(raw)['encoding']
-    infile.close()
-    return open(infile.name, "rt", encoding=encoding)
-
-
 def main():
     """Binds all the functionality together."""
     args = parse_args()
-    transreader = csv.reader(get_decoded(args.transactions),
+    transreader = csv.reader(kmyimport.get_decoded(args.transactions),
                              delimiter=INDELIM, quotechar='"')
-    payreader = csv.reader(get_decoded(args.payments),
+    payreader = csv.reader(kmyimport.get_decoded(args.payments),
                            delimiter=INDELIM, quotechar='"')
     process_files(transreader, payreader)
 
