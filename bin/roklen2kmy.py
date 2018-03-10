@@ -119,7 +119,8 @@ def transform(transactions):
     for transaction in transactions:
         newrow = []
         for col in PRIORITY_COLUMNS:
-            newrow.append(kmyimport.data_sanitize(transaction[col], col))
+            newrow.append(kmyimport.data_sanitize(transaction[col],
+                                                  is_column_amount(col)))
         newrow.append(kmyimport.get_memo_column(
             column_names, transaction,
             MEMO_PRIORITY_COLUMNS, PRIORITY_COLUMNS, is_column_amount))
@@ -216,7 +217,7 @@ def write_currency_file(currency, transactions):
         "RoklenFX-{}-{}.kmy.csv".format(
             transordered[0][DataColumns.DATE].strftime("%Y-%m-%d"),
             currency))
-    writer = kmyimport.get_csv_writer(pth)
+    writer = kmyimport.get_csv_writer(str(pth))
     for row in transform(transordered):
         writer.writerow(row)
 

@@ -94,6 +94,8 @@ def get_memo_column(column_names,
         except IndexError:
             print("failed on index={}, with row: {}".format(index, row))
             raise
+        except KeyError:
+            continue
         if not data:
             continue
         data = re.sub(OUTDELIM, '_', data)
