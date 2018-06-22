@@ -120,14 +120,14 @@ def get_csv_writer(output_file=None, input_file=None):
         return csv.writer(handle, delimiter=OUTDELIM, quoting=csv.QUOTE_ALL)
 
     if isinstance(output_file, str):
-        return get_writer(open(output_file, "w"))
+        return get_writer(open(output_file, "w", encoding='utf-16'))
     elif output_file and hasattr(output_file, "write"):
         return csv.writer(output_file)
     elif input_file:
         pth = pathlib.PurePosixPath(input_file.name)
         file_name = pathlib.PurePath.joinpath(
             pth.parent, pth.stem + ".kmy" + pth.suffix)
-        return get_writer(open(file_name, "w"))
+        return get_writer(open(file_name, "w", encoding='utf-16'))
 
     raise TypeError("no supported output_file or input_file given")
 
